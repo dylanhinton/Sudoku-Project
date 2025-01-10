@@ -48,6 +48,11 @@ public:
             grid[i].num = gridSample[i];
             if (grid[i].num != 0) {
                 filledEntries.push_back(&grid[i]);
+                for (int x = 0; x < 9; x++) {       //ensures that the only note in a filled out position is the number of said position
+                    if (x != grid[i].num - 1) {
+                        grid[i].notes[x] = 0;
+                    }
+                }
             }
             grid[i].pos = i;
             grid[i].col = getCol(i);
@@ -63,16 +68,23 @@ public:
     int getRow(int pos);
     int getBox(int pos);
     int getBoxHead(int boxNum);
+
     //seekers
     bool inCol(int num, int pos);
     bool inRow(int num, int pos);
     bool inBox(int num, int pos);
     bool valid(int num, int pos);
 
+    //evaluation
+    int* doublesCompare(cell cellA, cell cellB);
+
     bool complete();
     void place(int num, int pos);
     void noteScan();
     void nakedSingles();
+    void hiddenSingles();
+    void methodCycle();    /*Call this every time you want the sudoku to update with new cells
+                             This will start all solving from the beginning again*/
 
     //debug
     void displayGrid();
@@ -163,6 +175,11 @@ bool sudoku::complete() {
 void sudoku::place(int num, int pos) {
     grid[pos].num = num;
     filledEntries.push_back(&grid[pos]);
+    for (int i = 0; i < 9; i++) {       //ensures that the only note in a filled out position is the number of said position
+        if (i != num - 1) {
+            grid[pos].notes[i] = 0;
+        }
+    }
 };
 
 void sudoku::noteScan() {
@@ -215,14 +232,85 @@ void sudoku::nakedSingles() {
             }
             if (singles == 1) {
                 cout << valid(sum, i);
-                place(sum, i);
-                noteScan();
-                nakedSingles();
+                if (grid[i].num == 0) {
+                    place(sum, i);
+                    methodCycle();
+                }
             }
         }
     }
 };
 
+void sudoku::hiddenSingles() {
+    //Columns
+    for (int x = 0; x < 9; x++) {
+        int noteSum[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        for (int y = 0; y < 9; y++) {
+            for (int i = 0; i < 9; i++) {
+                noteSum[i] += grid[x + (y * 9)].notes[i];
+            }
+        }
+        for (int y = 0; y < 9; y++) {
+            for (int i = 0; i < 9; i++) {
+                if (noteSum[i] == grid[x + (y * 9)].notes[i]) {
+                    if (grid[x + (y * 9)].num == 0) {
+                        place(noteSum[i], x + (y * 9));
+                        methodCycle();
+                    }
+                }
+            }
+        }
+    }
+    //Rows
+    for (int x = 0; x < 9; x++) {
+        int noteSum[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        for (int y = 0; y < 9; y++) {
+            for (int i = 0; i < 9; i++) {
+                noteSum[i] += grid[(x * 9) + y].notes[i];
+            }
+        }
+        for (int y = 0; y < 9; y++) {
+            for (int i = 0; i < 9; i++) {
+                if (noteSum[i] == grid[(x * 9) + y].notes[i]) {
+                    if (grid[(x * 9) + y].num == 0) {
+                        place(noteSum[i], (x * 9) + y);
+                        methodCycle();
+                    }
+                }
+            }
+        }
+    }
+    //Boxs
+    for (int b = 0; b < 9; b++) {
+        int boxHead = getBoxHead(b);
+        int noteSum[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                for (int i = 0; i < 9; i++) {
+                    noteSum[i] += grid[boxHead + x + (9 * y)].notes[i];
+                }
+            }
+        }
+        for (int x = 0; x < 3; x++) {
+            for (int y = 0; y < 3; y++) {
+                for (int i = 0; i < 9; i++) {
+                    if (noteSum[i] == grid[boxHead + x + (9 * y)].notes[i]) {
+                        if (grid[boxHead + x + (9 * y)].num == 0) {
+                            place(noteSum[i], boxHead + x + (9 * y));
+                            methodCycle();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+void sudoku::methodCycle() {
+    noteScan();
+    nakedSingles();
+    hiddenSingles();
+}
 
 
 void sudoku::displayGrid() {
@@ -270,10 +358,13 @@ void sudoku::info(int pos) {
 int main() {
     sudoku bob;
     bob.displayGrid();
-    bob.noteScan();
-    bob.nakedSingles();
+    bob.methodCycle();
     bob.displayGrid();
-    bob.info(6);
+    for (int x = 0; x < 3; x++) {
+        for (int y = 0; y < 3; y++) {
+            bob.info((x * 9) + y);
+        }
+    }
     cout << bob.valid(6, 6);
     
     cout << "\n" << bob.getBoxHead(2);
