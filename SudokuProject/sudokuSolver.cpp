@@ -9,12 +9,13 @@ using namespace std;
 
 
 class sudoku {
+    
+public:
     struct cell {
         int num, pos, col, row, box;
         int notes[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
     };
 
-public:
     cell grid[81];
     vector<cell*> filledEntries; //a list of pointers to completed cells
 
@@ -75,23 +76,37 @@ public:
     bool inBox(int num, int pos);
     bool valid(int num, int pos);
 
+    //Accessors
+    cell* accessCol(int col, int cellNum);
+    cell* accessRow(int row, int cellNum);
+    cell* accessBox(int box, int cellNum);
+    
+
     //evaluation
+    void doublesEqual(cell* cellA, cell* cellB);
     int* doublesCompare(cell cellA, cell cellB);
+    bool checkPointingPair(cell* cellA, cell* cellB);
 
     bool complete();
     void place(int num, int pos);
+
+    //Solving Methods
     void noteScan();
     void nakedSingles();
     void hiddenSingles();
-    void methodCycle();    /*Call this every time you want the sudoku to update with new cells
-                             This will start all solving from the beginning again*/
+    void nakedDoubles();    //uses doublesNoteClean
+    void pointingPair();    //uses doublesNoteClean
+    void doublesNoteClean(cell* cellA, cell* cellB, int noteA, int noteB);
+    void methodCycle();                                                    /*Call this every time you want the sudoku to update with new cells
+                                                                             This will start all solving from the beginning again*/
 
     //debug
     void displayGrid();
     void peek(int pos);    //lists the notes at a cell
     void info(int pos);    //prints all relevant info for a cell (number, row, col, box, and notes)
-    
 };
+
+
 
 //Finders
 
@@ -99,9 +114,11 @@ int sudoku::getCol(int pos) {
     return pos % 9;
 };
 
+
 int sudoku::getRow(int pos) {
     return pos / 9;
 };
+
 
 int sudoku::getBox(int pos) {
     int col = getCol(pos) / 3;
@@ -109,12 +126,14 @@ int sudoku::getBox(int pos) {
     return col + (3 * row);
 }
 
+
 int sudoku::getBoxHead(int boxNum) {
     int col = (boxNum % 3) * 3;
     int row = (boxNum / 3) * 3;
     int boxHead = (row * 9) + col;
     return boxHead;
 }
+
 
 //Seekers
 
@@ -128,6 +147,7 @@ bool sudoku::inCol(int num, int pos) {
     return false;
 };
 
+
 bool sudoku::inRow(int num, int pos) {
     int row = grid[pos].row;
     for (int i = 0; i < 9; i++) {
@@ -137,6 +157,7 @@ bool sudoku::inRow(int num, int pos) {
     }
     return false;
 };
+
 
 bool sudoku::inBox(int num, int pos) {
     int box = grid[pos].box;
@@ -152,6 +173,7 @@ bool sudoku::inBox(int num, int pos) {
     return false;
 };
 
+
 bool sudoku::valid(int num, int pos) {
     if (inCol(num, pos) || inRow(num, pos) || inBox(num, pos)) {
         return false;
@@ -160,6 +182,7 @@ bool sudoku::valid(int num, int pos) {
         return true;
     }
 };
+
 
 bool sudoku::complete() {
     for (int i = 0; i < 81; i++) {
@@ -172,7 +195,58 @@ bool sudoku::complete() {
 
 
 
-void sudoku::place(int num, int pos) {
+//Accessors
+
+sudoku::cell* sudoku::accessCol(int col, int cellNum) {
+    if (col >= 9 || col < 0) {
+        cout << "ERROR: Access Violation\n" << col << " out of bounds" << endl;
+        return 0;
+    }
+    if (cellNum >= 9 || cellNum < 0) {
+        cout << "ERROR: Access Violation\n" << cellNum << " out of bounds" << endl;
+        return 0;
+    }
+    cell* colCell = &grid[col + (9 * cellNum)];
+    return colCell; 
+};
+
+
+sudoku::cell* sudoku::accessRow(int row, int cellNum) {
+    if (row >= 9 || row < 0) {
+        cout << "ERROR: Access Violation\n" << row << " out of bounds" << endl;
+        return 0;
+    }
+    if (cellNum >= 9 || cellNum < 0) {
+        cout << "ERROR: Access Violation\n" << cellNum << " out of bounds" << endl;
+        return 0;
+    }
+    cell* rowCell = &grid[cellNum + (9 * row)];
+    return rowCell;
+};
+
+
+sudoku::cell* sudoku::accessBox(int box, int cellNum) {
+    if (box >= 9 || box < 0) {
+        cout << "ERROR: Access Violation\n" << box << " out of bounds" << endl;
+        return 0;
+    }
+    if (cellNum >= 9 || cellNum < 0) {
+        cout << "ERROR: Access Violation\n" << cellNum << " out of bounds" << endl;
+        return 0;
+    }
+    int boxHead = getBoxHead(box);
+    int col = cellNum % 3;
+    int row = (cellNum / 3) * 9;
+    cell* boxCell = &grid[boxHead + col + row];
+    return boxCell;
+};
+
+
+void sudoku::place(int num, int pos) {      //This goes under some other category
+    if (pos < 0 || pos >= 81) {
+        cout << "ERROR: Access Violation\n" << pos << " Out of bounds" << endl;
+        return;
+    }
     grid[pos].num = num;
     filledEntries.push_back(&grid[pos]);
     for (int i = 0; i < 9; i++) {       //ensures that the only note in a filled out position is the number of said position
@@ -181,6 +255,34 @@ void sudoku::place(int num, int pos) {
         }
     }
 };
+
+//Evaluation
+
+void sudoku::doublesEqual(cell* cellA, cell* cellB) {
+    int totalEquals = 0;                    //Tracks equal non-zero values.
+    for (int i = 0; i < 9; i++) {
+        if (cellA->notes[i] != cellB->notes[i]) {
+            return;
+        }
+        else if (cellA->notes[i] != 0) {
+            totalEquals++;
+        }
+    }
+    if (totalEquals == 2) {
+        int notes[2] = {0,0};
+        int point = 0;
+        for (int i = 0; i < 9; i++) {
+            if (cellA->notes[i] != 0) {
+                notes[point] = cellA->notes[i];
+                point++;
+            }
+        }
+        doublesNoteClean(cellA, cellB, notes[0], notes[1]);
+    }
+};
+
+
+//Solving Methods
 
 void sudoku::noteScan() {
     for (int i = 0; i < filledEntries.size(); i++) {
@@ -218,6 +320,7 @@ void sudoku::noteScan() {
     }
 };
 
+
 void sudoku::nakedSingles() {
     //Look for hot singles in your area
     for (int i = 0; i < 81; i++) {
@@ -240,6 +343,7 @@ void sudoku::nakedSingles() {
         }
     }
 };
+
 
 void sudoku::hiddenSingles() {
     //Columns
@@ -304,14 +408,101 @@ void sudoku::hiddenSingles() {
             }
         }
     }
+};
+
+
+void sudoku::nakedDoubles() {
+    //Columns
+    for (int col = 0; col < 9; col++) {
+        for (int cellTop = 0; cellTop < 8; cellTop++) {
+            cell* top = accessCol(col, cellTop);
+            for (int cellBottom = 1 + cellTop; cellBottom < 9; cellBottom++) {
+                cell* bottom = accessCol(col, cellBottom);
+                doublesEqual(top, bottom);
+            }
+        }
+    }
+    //Rows
+    for (int row = 0; row < 9; row++) {
+        for (int cellTop = 0; cellTop < 8; cellTop++) {
+            cell* top = accessRow(row, cellTop);
+            for (int cellBottom = 1 + cellTop; cellBottom < 9; cellBottom++) {
+                cell* bottom = accessRow(row, cellBottom);
+                doublesEqual(top, bottom);
+            }
+        }
+    }
+    //Boxes
+    for (int box = 0; box < 9; box++) {
+        for (int cellTop = 0; cellTop < 8; cellTop++) {
+            cell* top = accessBox(box, cellTop);
+            for (int cellBottom = 1 + cellTop; cellBottom < 9; cellBottom++) {
+                cell* bottom = accessBox(box, cellBottom);
+                doublesEqual(top, bottom);
+            }
+        }
+    }
 }
 
+
+void sudoku::pointingPair() {
+    
+
+    
+}
+
+
+void sudoku::doublesNoteClean(cell* cellA, cell* cellB, int noteA, int noteB) {
+    if (cellA->col == cellB->col) {
+        int col = cellA->col;
+        for (int i = 0; i < 9; i++) {
+            cell* currentCell = accessCol(col, i);
+            if (currentCell != cellA && currentCell != cellB) {         //removes the notes of the double cells from non double cells
+                currentCell->notes[noteA - 1] = 0;
+                if (noteB != 0) {
+                    currentCell->notes[noteB - 1] = 0;
+                }
+            }
+        }
+    }
+    if (cellA->row == cellB->row) {
+        int row = cellA->row;
+        for (int i = 0; i < 9; i++) {
+            cell* currentCell = accessRow(row, i);
+            if (currentCell != cellA && currentCell != cellB) {         //removes the notes of the double cells from non double cells
+                currentCell->notes[noteA - 1] = 0;
+                if (noteB != 0) {
+                    currentCell->notes[noteB - 1] = 0;
+                }
+            }
+        }
+    }
+    if (cellA->box == cellB->box) {
+        int box = cellA->box;
+        for (int i = 0; i < 9; i++) {
+            cell* currentCell = accessBox(box, i);
+            if (currentCell != cellA && currentCell != cellB) {         //removes the notes of the double cells from non double cells
+                currentCell->notes[noteA - 1] = 0;
+                if (noteB != 0) {
+                    currentCell->notes[noteB - 1] = 0;
+                }
+            }
+        }
+    }                                                                   //ends with methodCycle OR NOT>!
+}
+
+
 void sudoku::methodCycle() {
+    //notation modifiers
     noteScan();
+    nakedDoubles();
+    //placers
     nakedSingles();
     hiddenSingles();
 }
 
+
+//Debug and viewing
 
 void sudoku::displayGrid() {
     string horizontal = "-------------------------\n";
@@ -338,11 +529,13 @@ void sudoku::displayGrid() {
     cout << horizontal;
 };
 
+
 void sudoku::peek(int pos) {
     for (int i = 0; i < 9; i++) {
         cout << grid[pos].notes[i] << " ";
     }
 };
+
 
 void sudoku::info(int pos) {
     cell cellIQ = grid[pos];
@@ -351,8 +544,10 @@ void sudoku::info(int pos) {
          << "Column: " << cellIQ.col << endl
          << "Notes: ";
     peek(pos);
-    cout << endl;
+    cout << endl << endl;
 }
+
+
 
 
 int main() {
@@ -362,7 +557,7 @@ int main() {
     bob.displayGrid();
     for (int x = 0; x < 3; x++) {
         for (int y = 0; y < 3; y++) {
-            bob.info((x * 9) + y);
+            bob.info((x * 9) + y + 54);
         }
     }
     cout << bob.valid(6, 6);
