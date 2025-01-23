@@ -74,6 +74,7 @@ public:
     bool inCol(int num, int pos);
     bool inRow(int num, int pos);
     bool inBox(int num, int pos);
+
     bool valid(int num, int pos);
 
     //Accessors
@@ -85,8 +86,8 @@ public:
     //evaluation
     void doublesEqual(cell* cellA, cell* cellB);
     int* doublesCompare(cell cellA, cell cellB);
-    bool checkPointingPair(cell* cellA, cell* cellB);
-
+    bool pointingInBox(int num, int box);
+    
     bool complete();
     void place(int num, int pos);
 
@@ -174,6 +175,7 @@ bool sudoku::inBox(int num, int pos) {
 };
 
 
+
 bool sudoku::valid(int num, int pos) {
     if (inCol(num, pos) || inRow(num, pos) || inBox(num, pos)) {
         return false;
@@ -192,7 +194,6 @@ bool sudoku::complete() {
     }
     return true;
 };
-
 
 
 //Accessors
@@ -280,6 +281,45 @@ void sudoku::doublesEqual(cell* cellA, cell* cellB) {
         doublesNoteClean(cellA, cellB, notes[0], notes[1]);
     }
 };
+
+bool sudoku::pointingInBox(int num, int box) {
+    //Search box for total number of num, if this is more than 2 then it returns false, else it will continue the function
+    int total = 0;
+    for (int i = 0; i < 9; i++) {
+        cell* currentCell = accessBox(box, i);
+        if (currentCell->notes[num - 1] == num && currentCell->num == 0) {
+            total++;
+        }
+    }
+    if (total != 2) {
+        return false;
+    }
+
+    //Find locations of our 2 numbers
+    cell* firstCell;
+    cell* secondCell;
+    bool second = false;
+    for (int i = 0; i < 9; i++) {
+        cell* currentCell = accessBox(box, i);
+        if (currentCell->notes[num - 1] == num && second) {
+            secondCell = currentCell;
+        }
+        if (currentCell->notes[num - 1] == num && !second) {
+            firstCell = currentCell;
+            second = true;
+        }
+    }
+
+    //Check if the two cells are valid pointing pairs then cleans that row/column
+    if (firstCell->row == secondCell->row || firstCell->col == secondCell->col) {
+        doublesNoteClean(firstCell, secondCell, num, 0);
+        cout << "Pointing Pair Found" << num << " in " << box + 1 << endl;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 
 //Solving Methods
@@ -446,9 +486,11 @@ void sudoku::nakedDoubles() {
 
 
 void sudoku::pointingPair() {
-    
-
-    
+    for (int box = 0; box < 9; box++) {
+        for (int num = 1; num <= 9; num++) {
+            pointingInBox(num, box);
+        }
+    }
 }
 
 
@@ -496,6 +538,7 @@ void sudoku::methodCycle() {
     //notation modifiers
     noteScan();
     nakedDoubles();
+    pointingPair();
     //placers
     nakedSingles();
     hiddenSingles();
