@@ -4,6 +4,7 @@
 #include <time.h>
 #include <fstream>
 #include <vector>
+#include <array>
 
 using namespace std;
 
@@ -22,15 +23,15 @@ public:
     sudoku() {
 
         int gridSample[81] = {
-            0, 8, 0, 6, 0, 0, 0, 2, 0,
-            0, 0, 0, 0, 9, 5, 0, 0, 7,
-            4, 0, 5, 0, 3, 2, 0, 0, 0,
-            0, 6, 0, 1, 5, 0, 0, 0, 4,
-            0, 0, 9, 0, 0, 0, 0, 5, 0,
-            0, 2, 0, 0, 0, 0, 8, 0, 0,
-            0, 0, 0, 0, 0, 0, 7, 0, 6,
-            9, 0, 0, 0, 6, 0, 0, 0, 0,
-            6, 0, 0, 0, 4, 1, 9, 0, 0
+            0, 0, 0, 4, 0, 0, 6, 0, 2,
+            0, 0, 6, 0, 0, 0, 1, 0, 0,
+            0, 9, 0, 5, 0, 0, 0, 8, 0,
+            0, 5, 0, 3, 0, 0, 0, 0, 0,
+            3, 0, 1, 2, 0, 6, 4, 0, 5,
+            0, 0, 0, 0, 0, 7, 0, 2, 0,
+            0, 3, 0, 0, 0, 2, 0, 6, 0,
+            0, 0, 4, 0, 0, 0, 9, 0, 0,
+            5, 0, 7, 0, 0, 9, 0, 0, 0
         };
         /* Empty Grid
             0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -75,6 +76,8 @@ public:
     bool inRow(int num, int pos);
     bool inBox(int num, int pos);
 
+    bool contains(cell* cell, int num);
+
     bool valid(int num, int pos);
 
     //Accessors
@@ -82,6 +85,13 @@ public:
     cell* accessRow(int row, int cellNum);
     cell* accessBox(int box, int cellNum);
     
+
+    //Utility
+
+    array<int, 9> columnSum(int col);    //Adds up the notes of the col/row/box then returns an array of the notes (notes[9])
+    array<int, 9> rowSum(int row);
+    array<int, 9> boxSum(int box);
+
 
     //evaluation
     void doublesEqual(cell* cellA, cell* cellB);
@@ -98,6 +108,8 @@ public:
     void nakedDoubles();    //uses doublesNoteClean
     void pointingPair();    //uses doublesNoteClean
     void doublesNoteClean(cell* cellA, cell* cellB, int noteA, int noteB);
+    void rowColNoteClean(cell* cellA, cell* cellB, int note);
+    void xWing();
     void methodCycle();                                                    /*Call this every time you want the sudoku to update with new cells
                                                                              This will start all solving from the beginning again*/
 
@@ -174,6 +186,12 @@ bool sudoku::inBox(int num, int pos) {
     return false;
 };
 
+bool sudoku::contains(sudoku::cell* cell, int num) {
+    if (cell->notes[num]) {
+        return true;
+    }
+    return false;
+}
 
 
 bool sudoku::valid(int num, int pos) {
@@ -257,6 +275,41 @@ void sudoku::place(int num, int pos) {      //This goes under some other categor
     }
 };
 
+//Utility
+
+array<int, 9> sudoku::columnSum(int col) {
+    array<int, 9> noteSum = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    for (int i = 0; i < 9; i++) {
+        for (int n = 0; n < 9; n++) {
+            noteSum[n] += accessCol(col, i)->notes[n];
+        }
+    }
+    return noteSum;
+};
+
+
+array<int, 9> sudoku::rowSum(int row) {
+    array<int, 9> noteSum = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    for (int i = 0; i < 9; i++) {
+        for (int n = 0; n < 9; n++) {
+            noteSum[n] += accessRow(row, i)->notes[n];
+        }
+    }
+    return noteSum;
+};
+
+
+array<int, 9> sudoku::boxSum(int box) {
+    array<int, 9> noteSum = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    for (int i = 0; i < 9; i++) {
+        for (int n = 0; n < 9; n++) {
+            noteSum[n] += accessBox(box, i)->notes[n];
+        }
+    }
+    return noteSum;
+};
+
+
 //Evaluation
 
 void sudoku::doublesEqual(cell* cellA, cell* cellB) {
@@ -281,6 +334,7 @@ void sudoku::doublesEqual(cell* cellA, cell* cellB) {
         doublesNoteClean(cellA, cellB, notes[0], notes[1]);
     }
 };
+
 
 bool sudoku::pointingInBox(int num, int box) {
     //Search box for total number of num, if this is more than 2 then it returns false, else it will continue the function
@@ -313,7 +367,7 @@ bool sudoku::pointingInBox(int num, int box) {
     //Check if the two cells are valid pointing pairs then cleans that row/column
     if (firstCell->row == secondCell->row || firstCell->col == secondCell->col) {
         doublesNoteClean(firstCell, secondCell, num, 0);
-        cout << "Pointing Pair Found" << num << " in " << box + 1 << endl;
+        //cout << "Pointing Pair Found" << num << " in " << box + 1 << endl;
         return true;
     }
     else {
@@ -534,14 +588,131 @@ void sudoku::doublesNoteClean(cell* cellA, cell* cellB, int noteA, int noteB) {
 }
 
 
+void sudoku::rowColNoteClean(cell* cellA, cell* cellB, int note) {
+    if (cellA->col == cellB->col) {
+        int col = cellA->col;
+        for (int i = 0; i < 9; i++) {
+            cell* currentCell = accessCol(col, i);
+            if (currentCell != cellA && currentCell != cellB) {         //removes the notes of the double cells from non double cells
+                currentCell->notes[note - 1] = 0;
+            }
+        }
+    }
+    if (cellA->row == cellB->row) {
+        int row = cellA->row;
+        for (int i = 0; i < 9; i++) {
+            cell* currentCell = accessRow(row, i);
+            if (currentCell != cellA && currentCell != cellB) {         //removes the notes of the double cells from non double cells
+                currentCell->notes[note - 1] = 0;
+            }
+        }
+    }
+}
+
+
+void sudoku::xWing() {
+    //Columns
+    for (int colHead = 0; colHead < 8; colHead++) {
+        array<int, 9> firstCol = columnSum(colHead);
+        for (int colTail = colHead + 1; colTail < 9; colTail++) {
+            array<int, 9> secondCol = columnSum(colTail);
+            for (int num = 0; num < 9; num++) {
+                if ((firstCol[num] == 2 * (num + 1)) && (secondCol[num] == 2 * (num + 1))) {
+                    cell* topHead = 0;
+                    cell* bottomHead = 0;
+                    cell* topTail = 0;
+                    cell* bottomTail = 0;
+                    for (int i = 0; i < 9; i++) {
+                        cell* tempCell = accessCol(colHead, i);
+                        if (!topHead && contains(tempCell, num)) {
+                            topHead = tempCell;
+                        }
+                        if (topHead && contains(tempCell, num)) {
+                            topTail = tempCell;
+                        }
+                        tempCell = accessCol(colTail, i);
+                        if (!bottomHead && contains(tempCell, num)) {
+                            bottomHead = tempCell;
+                        }
+                        if (bottomHead && contains(tempCell, num)) {
+                            bottomTail = tempCell;
+                        }
+                    }
+                    if (topHead && bottomHead && topTail && bottomTail) {
+                        if (topHead->row == bottomHead->row && topTail->row == bottomTail->row) {
+                            cout << "Eliminating X-Wing\nrows " << topHead->row << " and " << bottomTail->row << endl
+                                 << "cols " << topHead->col << " and " << bottomHead->col << endl
+                                 << "Note removed: " << num + 1 << endl;
+                            rowColNoteClean(topHead, bottomHead, num + 1);
+                            rowColNoteClean(topHead, topTail, num + 1);
+                            rowColNoteClean(bottomHead, bottomTail, num + 1);
+                            rowColNoteClean(topTail, bottomTail, num + 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //Rows
+    for (int rowHead = 0; rowHead < 8; rowHead++) {
+        array<int, 9> firstRow = rowSum(rowHead);
+        for (int rowTail = rowHead + 1; rowTail < 9; rowTail++) {
+            array<int, 9> secondRow = rowSum(rowTail);
+            for (int num = 0; num < 9; num++) {
+                if ((firstRow[num] == 2 * (num + 1)) && (secondRow[num] == 2 * (num + 1))) {
+                    
+                    cell* topHead = 0;
+                    cell* bottomHead = 0;
+                    cell* topTail = 0;
+                    cell* bottomTail = 0;
+                    for (int i = 0; i < 9; i++) {
+                        cell* tempCell = accessRow(rowHead, i);
+                        if (!topHead && contains(tempCell, num)) {
+                            topHead = tempCell;
+                        }
+                        if (topHead && contains(tempCell, num)) {
+                            topTail = tempCell;
+                        }
+                        tempCell = accessRow(rowTail, i);
+                        if (!bottomHead && contains(tempCell, num)) {
+                            bottomHead = tempCell;
+                        }
+                        if (bottomHead && contains(tempCell, num)) {
+                            bottomTail = tempCell;
+                        }
+                    }
+                    if (topHead && bottomHead && topTail && bottomTail) {
+                        if (topHead->col == bottomHead->col && topTail->col == bottomTail->col) {
+                            cout << "Eliminating X-Wing\nrows " << topHead->row << " and " << bottomTail->row << endl
+                                 << "cols " << topHead->col << " and " << bottomHead->col << endl
+                                 << "Note removed: " << num + 1 << endl;
+                            rowColNoteClean(topHead, bottomHead, num + 1);
+                            rowColNoteClean(topHead, topTail, num + 1);
+                            rowColNoteClean(bottomHead, bottomTail, num + 1);
+                            rowColNoteClean(topTail, bottomTail, num + 1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+};
+
+
 void sudoku::methodCycle() {
     //notation modifiers
     noteScan();
     nakedDoubles();
     pointingPair();
+    xWing();
+    displayGrid();
     //placers
     nakedSingles();
     hiddenSingles();
+
+
 }
 
 
@@ -598,13 +769,16 @@ int main() {
     bob.displayGrid();
     bob.methodCycle();
     bob.displayGrid();
+    /*
     for (int x = 0; x < 3; x++) {
         for (int y = 0; y < 3; y++) {
             bob.info((x * 9) + y + 54);
         }
     }
-    cout << bob.valid(6, 6);
-    
-    cout << "\n" << bob.getBoxHead(2);
+    */
+    bob.info(4);
+    bob.info(7);
+    bob.info(40);
+    bob.info(43);
     return 0;
 };
