@@ -5,6 +5,7 @@
 #include <fstream>
 #include <vector>
 #include <array>
+#include <cstdlib>
 
 using namespace std;
 
@@ -20,18 +21,19 @@ public:
     cell grid[81];
     vector<cell*> filledEntries; //a list of pointers to completed cells
 
+
     sudoku() {
 
         int gridSample[81] = {
-            0, 0, 0, 4, 0, 0, 6, 0, 2,
-            0, 0, 6, 0, 0, 0, 1, 0, 0,
-            0, 9, 0, 5, 0, 0, 0, 8, 0,
-            0, 5, 0, 3, 0, 0, 0, 0, 0,
-            3, 0, 1, 2, 0, 6, 4, 0, 5,
-            0, 0, 0, 0, 0, 7, 0, 2, 0,
-            0, 3, 0, 0, 0, 2, 0, 6, 0,
-            0, 0, 4, 0, 0, 0, 9, 0, 0,
-            5, 0, 7, 0, 0, 9, 0, 0, 0
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0
         };
         /* Empty Grid
             0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -61,29 +63,30 @@ public:
             grid[i].row = getRow(i);
             grid[i].box = getBox(i);
         }
-        
-    
 
+        srand(time(0));
+        
     };
     //finders
-    int getCol(int pos);
+    int getCol(int pos);                    //gets the int value of the row/box/col (between 0-8)
     int getRow(int pos);
     int getBox(int pos);
-    int getBoxHead(int boxNum);
+    int getBoxHead(int boxNum);             //gets the cell location of the head of the box
 
     //seekers
-    bool inCol(int num, int pos);
+    bool inCol(int num, int pos);           //returns if a number is in a row/box/col
     bool inRow(int num, int pos);
     bool inBox(int num, int pos);
 
-    bool contains(cell* cell, int num);
+    bool contains(cell* cell, int num);     //sees if a note is located in a cell
 
     bool valid(int num, int pos);
 
     //Accessors
-    cell* accessCol(int col, int cellNum);
+    cell* accessCol(int col, int cellNum);  //Returns a pointer to the cell at the row/col/box
     cell* accessRow(int row, int cellNum);
     cell* accessBox(int box, int cellNum);
+    cell* accessGrid(int pos);
     
 
     //Utility
@@ -95,11 +98,11 @@ public:
 
     //evaluation
     void doublesEqual(cell* cellA, cell* cellB);
-    int* doublesCompare(cell cellA, cell cellB);
     bool pointingInBox(int num, int box);
     
     bool complete();
     void place(int num, int pos);
+    void unplace();
 
     //Solving Methods
     void noteScan();
@@ -112,6 +115,13 @@ public:
     void xWing();
     void methodCycle();                                                    /*Call this every time you want the sudoku to update with new cells
                                                                              This will start all solving from the beginning again*/
+
+    //Creating
+    void resetNotes();
+    void recursiveFillSudoku();
+    void recursiveFillSudoku(int pos);
+    int randomValue(int offset, int random);
+
 
     //debug
     void displayGrid();
@@ -153,7 +163,7 @@ int sudoku::getBoxHead(int boxNum) {
 bool sudoku::inCol(int num, int pos) {
     int col = grid[pos].col;
     for (int i = 0; i < 9; i++) {
-        if (num = grid[(i * 9) + col].num) {
+        if (num == grid[(i * 9) + col].num) {
             return true;
         }
     }
@@ -185,6 +195,7 @@ bool sudoku::inBox(int num, int pos) {
     }
     return false;
 };
+
 
 bool sudoku::contains(sudoku::cell* cell, int num) {
     if (cell->notes[num]) {
@@ -260,6 +271,14 @@ sudoku::cell* sudoku::accessBox(int box, int cellNum) {
     return boxCell;
 };
 
+sudoku::cell* sudoku::accessGrid(int pos) {
+    if (0 > pos || pos >= 81) {
+        cout << "ERROR: Access Violation\n" << pos << " out of bounds" << endl;
+        return 0;
+    }
+    cell* gridCell = &grid[pos];
+    return gridCell;
+}
 
 void sudoku::place(int num, int pos) {      //This goes under some other category
     if (pos < 0 || pos >= 81) {
@@ -274,6 +293,11 @@ void sudoku::place(int num, int pos) {      //This goes under some other categor
         }
     }
 };
+
+void sudoku::unplace() {
+    filledEntries.back()->num = 0;
+    filledEntries.pop_back();
+}
 
 //Utility
 
@@ -640,9 +664,11 @@ void sudoku::xWing() {
                     }
                     if (topHead && bottomHead && topTail && bottomTail) {
                         if (topHead->row == bottomHead->row && topTail->row == bottomTail->row) {
+                            /*
                             cout << "Eliminating X-Wing\nrows " << topHead->row << " and " << bottomTail->row << endl
                                  << "cols " << topHead->col << " and " << bottomHead->col << endl
                                  << "Note removed: " << num + 1 << endl;
+                            */
                             rowColNoteClean(topHead, bottomHead, num + 1);
                             rowColNoteClean(topHead, topTail, num + 1);
                             rowColNoteClean(bottomHead, bottomTail, num + 1);
@@ -684,9 +710,11 @@ void sudoku::xWing() {
                     }
                     if (topHead && bottomHead && topTail && bottomTail) {
                         if (topHead->col == bottomHead->col && topTail->col == bottomTail->col) {
+                            /*
                             cout << "Eliminating X-Wing\nrows " << topHead->row << " and " << bottomTail->row << endl
                                  << "cols " << topHead->col << " and " << bottomHead->col << endl
                                  << "Note removed: " << num + 1 << endl;
+                            */
                             rowColNoteClean(topHead, bottomHead, num + 1);
                             rowColNoteClean(topHead, topTail, num + 1);
                             rowColNoteClean(bottomHead, bottomTail, num + 1);
@@ -707,12 +735,78 @@ void sudoku::methodCycle() {
     nakedDoubles();
     pointingPair();
     xWing();
-    displayGrid();
+    //displayGrid();
     //placers
     nakedSingles();
     hiddenSingles();
 
 
+}
+
+
+//Creating
+
+void sudoku::resetNotes() {
+    cell* current = 0;
+    for (int i = 0; i < 81; i++) {
+        current = accessGrid(i);
+        if (current->num == 0) {
+            for (int num = 0; num < 9; num++) {
+                if (current->notes[num] == 0) {
+                    current->notes[num] = num + 1;
+                }
+            }
+        }
+        else {
+
+        }
+    }
+}
+
+void sudoku::recursiveFillSudoku() {
+
+    int num = 0;
+
+    while(!complete()) {
+        int random = rand();
+        for (int i = 0; i < 9; i++) {
+            num = randomValue(i, random);
+            place(num, 0);
+            recursiveFillSudoku(1);
+            if (!complete()) {
+                unplace();
+            }
+            else {
+                return;
+            }
+        } 
+    }
+};
+
+void sudoku::recursiveFillSudoku(int pos) {
+    int num = 0;
+    while(!complete() && pos < 81) {    //I believe this while loop can be replaced by an if statement only checking position
+        int random = rand();
+        for (int i = 0; i < 9; i++) {
+            num = randomValue(i, random);
+            if (valid(num, pos)) {
+                place(num, pos);
+                recursiveFillSudoku(pos + 1);
+                //If the steps taken have not completed the sudoku, undo the move just made and try the rest of the values
+                if (!complete()) {
+                    unplace();
+                }
+                else {
+                    return;
+                }
+            }
+        }
+        return;
+    }
+};
+
+int sudoku::randomValue(int offset, int random) {
+    return ((offset + random) % 9) + 1;      //gives a random number 1 - 9, at an offset of a random value.
 }
 
 
@@ -767,7 +861,7 @@ void sudoku::info(int pos) {
 int main() {
     sudoku bob;
     bob.displayGrid();
-    bob.methodCycle();
+    bob.recursiveFillSudoku();
     bob.displayGrid();
     /*
     for (int x = 0; x < 3; x++) {
