@@ -25,15 +25,15 @@ public:
     sudoku() {
 
         int gridSample[81] = {
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0
+            1, 0, 7, 0, 0, 0, 3, 0, 9,
+            0, 0, 0, 0, 7, 9, 1, 0, 0,
+            0, 3, 0, 0, 0, 0, 0, 0, 6,
+            0, 8, 1, 0, 6, 0, 0, 0, 0,
+            0, 4, 0, 1, 0, 8, 2, 0, 0,
+            0, 6, 0, 0, 2, 0, 7, 0, 0,
+            0, 0, 0, 0, 0, 2, 0, 0, 0,
+            0, 7, 0, 8, 3, 0, 0, 5, 0,
+            4, 0, 0, 6, 0, 0, 0, 0, 0
         };
         /* Empty Grid
             0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -452,7 +452,7 @@ void sudoku::nakedSingles() {
                 }
             }
             if (singles == 1) {
-                cout << valid(sum, i);
+                //cout << valid(sum, i);
                 if (grid[i].num == 0) {
                     place(sum, i);
                     methodCycle();
@@ -466,61 +466,49 @@ void sudoku::nakedSingles() {
 void sudoku::hiddenSingles() {
     //Columns
     for (int x = 0; x < 9; x++) {
-        int noteSum[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        array<int, 9> noteSum = columnSum(x);
+
         for (int y = 0; y < 9; y++) {
             for (int i = 0; i < 9; i++) {
-                noteSum[i] += grid[x + (y * 9)].notes[i];
-            }
-        }
-        for (int y = 0; y < 9; y++) {
-            for (int i = 0; i < 9; i++) {
-                if (noteSum[i] == grid[x + (y * 9)].notes[i]) {
-                    if (grid[x + (y * 9)].num == 0) {
-                        place(noteSum[i], x + (y * 9));
+                cell* currentCell = accessCol(x, y);
+                if (contains(currentCell, i)) {
+                    if (currentCell->num == 0) {
+                        place(noteSum[i], currentCell->pos);
                         methodCycle();
                     }
                 }
             }
         }
     }
+    
     //Rows
     for (int x = 0; x < 9; x++) {
-        int noteSum[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+        array<int, 9> noteSum = rowSum(x);
+
         for (int y = 0; y < 9; y++) {
             for (int i = 0; i < 9; i++) {
-                noteSum[i] += grid[(x * 9) + y].notes[i];
-            }
-        }
-        for (int y = 0; y < 9; y++) {
-            for (int i = 0; i < 9; i++) {
-                if (noteSum[i] == grid[(x * 9) + y].notes[i]) {
-                    if (grid[(x * 9) + y].num == 0) {
-                        place(noteSum[i], (x * 9) + y);
+                cell* currentCell = accessRow(x, y);
+                if (contains(currentCell, i)) {
+                    if (currentCell->num == 0) {
+                        place(noteSum[i], currentCell->pos);
                         methodCycle();
                     }
                 }
             }
         }
     }
-    //Boxs
-    for (int b = 0; b < 9; b++) {
-        int boxHead = getBoxHead(b);
-        int noteSum[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
-        for (int x = 0; x < 3; x++) {
-            for (int y = 0; y < 3; y++) {
-                for (int i = 0; i < 9; i++) {
-                    noteSum[i] += grid[boxHead + x + (9 * y)].notes[i];
-                }
-            }
-        }
-        for (int x = 0; x < 3; x++) {
-            for (int y = 0; y < 3; y++) {
-                for (int i = 0; i < 9; i++) {
-                    if (noteSum[i] == grid[boxHead + x + (9 * y)].notes[i]) {
-                        if (grid[boxHead + x + (9 * y)].num == 0) {
-                            place(noteSum[i], boxHead + x + (9 * y));
-                            methodCycle();
-                        }
+
+    //Boxes
+    for (int x = 0; x < 9; x++) {
+        array<int, 9> noteSum = boxSum(x);
+
+        for (int y = 0; y < 9; y++) {
+            for (int i = 0; i < 9; i++) {
+                cell* currentCell = accessBox(x, y);
+                if (contains(currentCell, i)) {
+                    if (currentCell->num == 0) {
+                        place(noteSum[i], currentCell->pos);
+                        methodCycle();
                     }
                 }
             }
@@ -763,6 +751,7 @@ void sudoku::resetNotes() {
     }
 }
 
+
 void sudoku::recursiveFillSudoku() {
 
     int num = 0;
@@ -782,6 +771,7 @@ void sudoku::recursiveFillSudoku() {
         } 
     }
 };
+
 
 void sudoku::recursiveFillSudoku(int pos) {
     int num = 0;
@@ -804,6 +794,7 @@ void sudoku::recursiveFillSudoku(int pos) {
         return;
     }
 };
+
 
 int sudoku::randomValue(int offset, int random) {
     return ((offset + random) % 9) + 1;      //gives a random number 1 - 9, at an offset of a random value.
@@ -861,7 +852,8 @@ void sudoku::info(int pos) {
 int main() {
     sudoku bob;
     bob.displayGrid();
-    bob.recursiveFillSudoku();
+    bob.methodCycle();
+    //bob.recursiveFillSudoku();
     bob.displayGrid();
     /*
     for (int x = 0; x < 3; x++) {
