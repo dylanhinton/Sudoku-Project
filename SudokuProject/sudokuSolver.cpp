@@ -18,6 +18,11 @@ public:
         int notes[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
     };
 
+    struct note {
+        int num = 0;
+        int amt = 0;
+    };
+
     cell grid[81];
     vector<cell*> filledEntries; //a list of pointers to completed cells
 
@@ -94,12 +99,15 @@ public:
     array<int, 9> columnSum(int col);    //Adds up the notes of the col/row/box then returns an array of the notes (notes[9])
     array<int, 9> rowSum(int row);
     array<int, 9> boxSum(int box);
-
+    vector<cell*> unsolvedSubset(int rcb, char group);
 
     //evaluation
     void doublesEqual(cell* cellA, cell* cellB);
     bool pointingInBox(int num, int box);
-    
+    void recursiveUples(vector<cell*> set);
+    vector<cell*> recursiveUples(vector<cell*> set, vector<cell*> subset, vector<note> notesList, int offset, int n);
+    bool unionNoteSubsetCheck(std::vector<cell*> subset, std::vector<note> notesList);
+
     bool complete();
     void place(int num, int pos);
     void unplace();
@@ -113,6 +121,7 @@ public:
     void doublesNoteClean(cell* cellA, cell* cellB, int noteA, int noteB);
     void rowColNoteClean(cell* cellA, cell* cellB, int note);
     void xWing();
+    void hiddenUples();
     void methodCycle();                                                    /*Call this every time you want the sudoku to update with new cells
                                                                              This will start all solving from the beginning again*/
 
@@ -129,6 +138,56 @@ public:
     void info(int pos);    //prints all relevant info for a cell (number, row, col, box, and notes)
 };
 
+
+
+
+//Constructor
+
+sudoku::sudoku() {
+
+    int gridSample[81] = {
+        0, 0, 0, 0, 3, 2, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 7, 6, 0, 0, 9, 1, 4,
+        0, 9, 6, 0, 0, 0, 8, 0, 0,
+        0, 0, 5, 0, 0, 8, 0, 0, 0,
+        0, 3, 0, 0, 4, 0, 0, 0, 5,
+        0, 5, 0, 2, 0, 0, 0, 0, 0,
+        7, 0, 0, 0, 0, 0, 5, 6, 0,
+        9, 0, 4, 0, 1, 0, 0, 0, 0
+    };
+    /* Empty Grid
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0
+    */
+
+    for (int i = 0; i < 81; i++) {
+        //grid[i].num = 0;
+        grid[i].num = gridSample[i];
+        if (grid[i].num != 0) {
+            filledEntries.push_back(&grid[i]);
+            for (int x = 0; x < 9; x++) {       //ensures that the only note in a filled out position is the number of said position
+                if (x != grid[i].num - 1) {
+                    grid[i].notes[x] = 0;
+                }
+            }
+        }
+        grid[i].pos = i;
+        grid[i].col = getCol(i);
+        grid[i].row = getRow(i);
+        grid[i].box = getBox(i);
+    }
+
+    srand(time(0));
+    
+};
 
 
 //Finders
@@ -285,6 +344,9 @@ void sudoku::place(int num, int pos) {      //This goes under some other categor
         cout << "ERROR: Access Violation\n" << pos << " Out of bounds" << endl;
         return;
     }
+    if (num < 1 || num > 9) {
+        cout << "ERROR: Number " << num << "is INVALID at" << pos << endl;
+    }
     grid[pos].num = num;
     filledEntries.push_back(&grid[pos]);
     for (int i = 0; i < 9; i++) {       //ensures that the only note in a filled out position is the number of said position
@@ -332,6 +394,43 @@ array<int, 9> sudoku::boxSum(int box) {
     }
     return noteSum;
 };
+
+
+vector<sudoku::cell*> sudoku::unsolvedSubset(int rcb, char group) {
+    vector<cell*> set;
+    switch(group) {
+        case 'r':
+            for (int i = 0; i < 9; i++) {
+                set.push_back(accessRow(rcb, i));
+            }
+            break;
+
+        case 'c':
+            for (int i = 0; i < 9; i++) {
+                set.push_back(accessCol(rcb, i));
+            }
+            break;
+
+        case 'b':
+            for (int i = 0; i < 9; i++) {
+                set.push_back(accessCol(rcb, i));
+            }
+            break;
+
+        default:
+            cout << "INVALID group identifier" << endl;
+    }
+
+    for (int i = set.size() - 1; i >= 0; i--) {
+        if (set.at(i)->num != 0) {
+            set.erase(set.begin() + i);
+        }
+    }
+
+    return set;
+};
+
+
 
 
 //Evaluation
@@ -400,6 +499,73 @@ bool sudoku::pointingInBox(int num, int box) {
 }
 
 
+void sudoku::recursiveUples(vector<sudoku::cell*> set) {
+    vector<note> notesList(9);
+    vector<cell*> hiddenSet;
+    vector<vector<cell*>> hiddenSetList;
+
+    for (int i = 0; i < 9; i++) {
+        notesList.at(i).num = i + 1;
+    }
+    //Creates notesList vector, filling it with the notes in the set 
+    ////Could integrate this code into the noteSum function group by making a generalized noteSum() to work with cell vectors of size < 9, then making rcb accessor functions that return vector<*cell>
+    for (cell* currentCell : set) {
+        for (int i = 0; i < 9; i++) {
+            int noteInfo = currentCell->notes[i];
+            if (noteInfo > 0) {
+                notesList.at(i).amt++;
+            }
+        }
+    }
+    
+    //Keep all note objects with amounts between 2 and 4, remove the rest
+    vector<note>::iterator noteItr;
+    for (noteItr = notesList.begin(); noteItr != notesList.end();) {
+        if (noteItr->amt < 2 || noteItr->amt > 4) {
+            notesList.erase(noteItr);
+        }
+        else {
+            noteItr++;
+        }
+    }
+
+    if (notesList.empty()) {
+        return;
+    }
+
+    for (int size = 1; size < notesList.size(); size++) {
+        recursiveUples(set, hiddenSet, notesList, 0, size);
+        if (!hiddenSet.empty()) {
+            hiddenSetList.push_back(hiddenSet);
+        }
+        hiddenSet.clear();
+    }
+
+
+
+};
+
+vector<sudoku::cell*> sudoku::recursiveUples(vector<sudoku::cell*> set, vector<sudoku::cell*> subset, vector<sudoku::note> notesList, int offset, int n) {
+    for (int i = offset; i < notesList.size(); i++) {
+        subset.push_back(set.at(i));
+        if (offset = n - 1) {
+
+        }
+    }
+};
+
+bool sudoku::unionNoteSubsetCheck(std::vector<sudoku::cell*> subset, std::vector<sudoku::note> notesList) {
+    vector<note> noteUnion;
+    note tempNote;
+    for (cell* cell : subset) {
+        for (int i = 0; i < 9; i++) {
+            if (contains(cell, i)) {
+                noteUnion.push_back();
+            }
+        }
+    }
+}
+
 //Solving Methods
 
 void sudoku::noteScan() {
@@ -440,7 +606,6 @@ void sudoku::noteScan() {
 
 
 void sudoku::nakedSingles() {
-    //Look for hot singles in your area
     for (int i = 0; i < 81; i++) {
         if (grid[i].num == 0) {
             int singles = 0;
@@ -468,11 +633,11 @@ void sudoku::hiddenSingles() {
     for (int x = 0; x < 9; x++) {
         array<int, 9> noteSum = columnSum(x);
 
-        for (int y = 0; y < 9; y++) {
+        for (int y = 0; y < 9; y++) {               
             for (int i = 0; i < 9; i++) {
                 cell* currentCell = accessCol(x, y);
                 if (contains(currentCell, i)) {
-                    if (currentCell->num == 0) {
+                    if (currentCell->num == 0 && noteSum[i] == i + 1) {     //The current cell is empty AND this cell is the only one in the group with the value as a note.
                         place(noteSum[i], currentCell->pos);
                         methodCycle();
                     }
@@ -489,7 +654,7 @@ void sudoku::hiddenSingles() {
             for (int i = 0; i < 9; i++) {
                 cell* currentCell = accessRow(x, y);
                 if (contains(currentCell, i)) {
-                    if (currentCell->num == 0) {
+                    if (currentCell->num == 0 && noteSum[i] == i + 1) {
                         place(noteSum[i], currentCell->pos);
                         methodCycle();
                     }
@@ -506,7 +671,7 @@ void sudoku::hiddenSingles() {
             for (int i = 0; i < 9; i++) {
                 cell* currentCell = accessBox(x, y);
                 if (contains(currentCell, i)) {
-                    if (currentCell->num == 0) {
+                    if (currentCell->num == 0 && noteSum[i] == i + 1) {
                         place(noteSum[i], currentCell->pos);
                         methodCycle();
                     }
@@ -717,6 +882,16 @@ void sudoku::xWing() {
 };
 
 
+void sudoku::hiddenUples() {
+    for (int rcb = 0; rcb < 9; rcb++) {     //for every row/col/box (rcb)
+        for (char group : "rcb") {          //Iterates through the r, c, and b function identifiers
+
+        }
+    }
+}
+
+
+
 void sudoku::methodCycle() {
     //notation modifiers
     noteScan();
@@ -862,7 +1037,7 @@ int main() {
         }
     }
     */
-    bob.info(4);
+    bob.info(9);
     bob.info(7);
     bob.info(40);
     bob.info(43);
