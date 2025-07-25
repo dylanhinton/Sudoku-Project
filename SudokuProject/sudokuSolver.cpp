@@ -1,3 +1,6 @@
+
+#include "sudokuSolver.hpp"
+
 #include <iostream>
 #include <iomanip>
 #include <stdlib.h>
@@ -8,105 +11,51 @@
 using namespace std;
 
 
-class sudoku {
-    
-public:
-    struct cell {
-        int num, pos, col, row, box;
-        int notes[9] = {1, 2, 3, 4, 5, 6, 7, 8, 9};
+sudoku::sudoku() {
+
+    int gridSample[81] = {
+        0, 8, 0, 6, 0, 0, 0, 2, 0,
+        0, 0, 0, 0, 9, 5, 0, 0, 7,
+        4, 0, 5, 0, 3, 2, 0, 0, 0,
+        0, 6, 0, 1, 5, 0, 0, 0, 4,
+        0, 0, 9, 0, 0, 0, 0, 5, 0,
+        0, 2, 0, 0, 0, 0, 8, 0, 0,
+        0, 0, 0, 0, 0, 0, 7, 0, 6,
+        9, 0, 0, 0, 6, 0, 0, 0, 0,
+        6, 0, 0, 0, 4, 1, 9, 0, 0
     };
+    /* Empty Grid
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0
+    */
 
-    cell grid[81];
-    vector<cell*> filledEntries; //a list of pointers to completed cells
-
-    sudoku() {
-
-        int gridSample[81] = {
-            0, 8, 0, 6, 0, 0, 0, 2, 0,
-            0, 0, 0, 0, 9, 5, 0, 0, 7,
-            4, 0, 5, 0, 3, 2, 0, 0, 0,
-            0, 6, 0, 1, 5, 0, 0, 0, 4,
-            0, 0, 9, 0, 0, 0, 0, 5, 0,
-            0, 2, 0, 0, 0, 0, 8, 0, 0,
-            0, 0, 0, 0, 0, 0, 7, 0, 6,
-            9, 0, 0, 0, 6, 0, 0, 0, 0,
-            6, 0, 0, 0, 4, 1, 9, 0, 0
-        };
-        /* Empty Grid
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, 0, 0, 0, 0
-        */
-    
-        for (int i = 0; i < 81; i++) {
-            //grid[i].num = 0;
-            grid[i].num = gridSample[i];
-            if (grid[i].num != 0) {
-                filledEntries.push_back(&grid[i]);
-                for (int x = 0; x < 9; x++) {       //ensures that the only note in a filled out position is the number of said position
-                    if (x != grid[i].num - 1) {
-                        grid[i].notes[x] = 0;
-                    }
+    for (int i = 0; i < 81; i++) {
+        //grid[i].num = 0;
+        grid[i].num = gridSample[i];
+        if (grid[i].num != 0) {
+            filledEntries.push_back(&grid[i]);
+            for (int x = 0; x < 9; x++) {       //ensures that the only note in a filled out position is the number of said position
+                if (x != grid[i].num - 1) {
+                    grid[i].notes[x] = 0;
                 }
             }
-            grid[i].pos = i;
-            grid[i].col = getCol(i);
-            grid[i].row = getRow(i);
-            grid[i].box = getBox(i);
         }
-        
+        grid[i].pos = i;
+        grid[i].col = getCol(i);
+        grid[i].row = getRow(i);
+        grid[i].box = getBox(i);
+    }
     
 
-    };
-    //finders
-    int getCol(int pos);
-    int getRow(int pos);
-    int getBox(int pos);
-    int getBoxHead(int boxNum);
 
-    //seekers
-    bool inCol(int num, int pos);
-    bool inRow(int num, int pos);
-    bool inBox(int num, int pos);
-    bool valid(int num, int pos);
-
-    //Accessors
-    cell* accessCol(int col, int cellNum);
-    cell* accessRow(int row, int cellNum);
-    cell* accessBox(int box, int cellNum);
-    
-
-    //evaluation
-    void doublesEqual(cell* cellA, cell* cellB);
-    int* doublesCompare(cell cellA, cell cellB);
-    bool checkPointingPair(cell* cellA, cell* cellB);
-
-    bool complete();
-    void place(int num, int pos);
-
-    //Solving Methods
-    void noteScan();
-    void nakedSingles();
-    void hiddenSingles();
-    void nakedDoubles();    //uses doublesNoteClean
-    void pointingPair();    //uses doublesNoteClean
-    void doublesNoteClean(cell* cellA, cell* cellB, int noteA, int noteB);
-    void methodCycle();                                                    /*Call this every time you want the sudoku to update with new cells
-                                                                             This will start all solving from the beginning again*/
-
-    //debug
-    void displayGrid();
-    void peek(int pos);    //lists the notes at a cell
-    void info(int pos);    //prints all relevant info for a cell (number, row, col, box, and notes)
 };
-
-
 
 //Finders
 
@@ -550,18 +499,3 @@ void sudoku::info(int pos) {
 
 
 
-int main() {
-    sudoku bob;
-    bob.displayGrid();
-    bob.methodCycle();
-    bob.displayGrid();
-    for (int x = 0; x < 3; x++) {
-        for (int y = 0; y < 3; y++) {
-            bob.info((x * 9) + y + 54);
-        }
-    }
-    cout << bob.valid(6, 6);
-    
-    cout << "\n" << bob.getBoxHead(2);
-    return 0;
-};

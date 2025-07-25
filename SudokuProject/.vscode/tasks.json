@@ -1,15 +1,16 @@
 {
     "tasks": [
         {
-            "type": "cppbuild",
+            "type": "shell",
             "label": "C/C++: g++.exe build active file",
             "command": "C:\\msys64\\ucrt64\\bin\\g++.exe",
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "${file}",
+                "main.cpp",
+                "sudokuSolver.cpp",
                 "-o",
-                "${fileDirname}\\${fileBasenameNoExtension}.exe"
+                "${fileDirname}\\sudokuSolver.exe"
             ],
             "options": {
                 "cwd": "${fileDirname}"
